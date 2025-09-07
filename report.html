@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>דוח — יומן עבודה נריה</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container" style="grid-template-columns:1fr; padding-bottom:40px">
+    <div class="header" style="margin-bottom:12px">
+      <div class="brand">
+        <div class="logo">ND</div>
+        <div>
+          <h1>דוח משמרות</h1>
+          <p>הצגה מפורטת לפי חודש ופילטור מהיר</p>
+        </div>
+      </div>
+      <div class="controls">
+        <input id="search" class="search" placeholder="חפש...">
+        <a href="index.html" class="btn btn-ghost">חזרה להוספה</a>
+      </div>
+    </div>
+
+    <main class="card">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+        <div style="display:flex;gap:10px;align-items:center">
+          <label style="color:var(--muted)">בחר חודש</label>
+          <select id="month"></select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="exportCsv" class="btn btn-ghost">יצא CSV</button>
+          <button id="exportJson" class="btn btn-ghost">יצא JSON</button>
+          <button id="clearAll" class="btn btn-danger">איפוס יומן</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid" style="margin-top:12px">
+        <div class="kpi"><div class="klabel">סה״כ שעות</div><div id="tHours" class="kvalue">0.00</div></div>
+        <div class="kpi"><div class="klabel">שעות נוספות</div><div id="tOt" class="kvalue">0.00</div></div>
+        <div class="kpi"><div class="klabel">סה״כ שכר</div><div id="tPay" class="kvalue">0 ₪</div></div>
+        <div class="kpi"><div class="klabel">מספר ימי עבודה</div><div id="tDays" class="kvalue">0</div></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:14px;padding:0">
+        <table id="tbl">
+          <thead><tr><th>תאריך</th><th>כניסה</th><th>יציאה</th><th>שעות</th><th>ש.נוספות</th><th>סה״כ</th><th>הערה</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td colspan="3">סה״כ</td><td id="fHours">0.00</td><td id="fOt">0.00</td><td id="fPay">0 ₪</td><td></td></tr></tfoot>
+        </table>
+      </div>
+    </main>
+
+    <footer class="footer">© נריה — דוח יומן עבודה</footer>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const month=document.getElementById('month');
+    const tbl=document.querySelector('#tbl tbody');
+    const tHours=document.getElementById('tHours');
+    const tOt=document.getElementById('tOt');
+    const tPay=document.getElementById('tPay');
+    const tDays=document.getElementById('tDays');
+    const fHours=document.getElementById('fHours');
+    const fOt=document.getElementById('fOt');
+    const fPay=document.getElementById('fPay');
+    const exportCsv=document.getElementById('exportCsv');
+    const exportJson=document.getElementById('exportJson');
+    const clearAllBtn=document.getElementById('clearAll');
+    const search=document.getElementById('search');
+    function load(){ try{ return JSON.parse(localStorage.getItem('neria_premium_worklog_v1')||'[]'); }catch(e){ return []; } }
+    function populateMonths(data){
+      const months=Array.from(new Set(data.map(r=>r.date.slice(0,7)))).sort().reverse();
+      month.innerHTML = '<option value="">-- כל החודשים --</option>' + months.map(m=>`<option value="${m}">${m}</option>`).join('');
+    }
+    function render(){
+      const rows=load();
+      populateMonths(rows);
+      paint();
+    }
+    function paint(){
+      const rows=load();
+      const m=month.value;
+      const q=search.value.trim().toLowerCase();
+      const filtered = rows.filter(r=> (m? r.date.slice(0,7)===m : true) && (q? (r.date.includes(q) || r.note.toLowerCase().includes(q)) : true) );
+      tbl.innerHTML='';
+      if(!filtered.length){ tbl.innerHTML='<tr><td colspan="7" class="empty">אין רשומות</td></tr>'; tHours.textContent='0.00'; tOt.textContent='0.00'; tPay.textContent='0 ₪'; tDays.textContent='0'; return; }
+      filtered.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.hours}</td><td>${r.overtime}</td><td>${r.pay}</td><td>${r.note||''}</td>`;
+        tbl.appendChild(tr);
+      });
+      const tH=filtered.reduce((s,x)=>s+x.hours,0); const tO=filtered.reduce((s,x)=>s+x.overtime,0); const tP=filtered.reduce((s,x)=>s+x.pay,0);
+      tHours.textContent=tH.toFixed(2); tOt.textContent=tO.toFixed(2); tPay.textContent=tP.toFixed(2)+' ₪'; tDays.textContent=filtered.length;
+      fHours.textContent=tH.toFixed(2); fOt.textContent=tO.toFixed(2); fPay.textContent=tP.toFixed(2)+' ₪';
+    }
+    exportCsv.addEventListener('click', ()=>{
+      const rows=JSON.parse(localStorage.getItem('neria_premium_worklog_v1')||'[]');
+      if(!rows.length){ alert('אין נתונים'); return; }
+      const header=['תאריך','כניסה','יציאה','שעות','שעות נוספות','סה״כ','הערה'];
+      const lines=[header.join(',')];
+      rows.forEach(r=> lines.push([r.date,r.start,r.end,r.hours,r.overtime,r.pay,`"${(r.note||'').replace(/"/g,'""')}"`].join(',')));
+      const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='worklog_report.csv'; a.click();
+    });
+    exportJson.addEventListener('click', ()=>{
+      const rows=JSON.parse(localStorage.getItem('neria_premium_worklog_v1')||'[]');
+      if(!rows.length){ alert('אין נתונים'); return; }
+      const blob=new Blob([JSON.stringify(rows,null,2)],{type:'application/json'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='worklog_report.json'; a.click();
+    });
+    clearAllBtn.addEventListener('click', ()=>{ if(confirm('לאפס את היומן?')){ localStorage.removeItem('neria_premium_worklog_v1'); render(); } });
+    month.addEventListener('change', paint); search.addEventListener('input', paint);
+    // seed load
+    fetch('seed.json').then(r=>r.json()).then(seed=>{
+      if(!localStorage.getItem('neria_premium_worklog_v1')){ localStorage.setItem('neria_premium_worklog_v1', JSON.stringify(seed)); }
+      render();
+    }).catch(()=> render());
+  });
+  </script>
+</body>
+</html>

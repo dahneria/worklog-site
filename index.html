@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>יומן עבודה — נריה (פרימיום)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">ND</div>
+        <div>
+          <h1>יומן עבודה — נריה</h1>
+          <p>ניהול משמרות, חישוב שעות נוספות ותשלום מהיר</p>
+        </div>
+      </div>
+      <div class="controls">
+        <input id="search" class="search" placeholder="חפש לפי תאריך/הערה/שעה">
+        <a href="report.html" class="btn btn-ghost">דוח מפורט</a>
+      </div>
+    </div>
+
+    <main class="card add-shift">
+      <h2>הוספת משמרת מהירה</h2>
+      <div class="row">
+        <div class="field"><label>תאריך</label><input id="date" type="date"></div>
+        <div class="field"><label>כניסה</label><input id="start" type="time" step="60"></div>
+        <div class="field"><label>יציאה</label><input id="end" type="time" step="60"></div>
+      </div>
+      <div class="row">
+        <div class="field" style="flex:2"><label>הערה (אופציונלי)</label><input id="note" type="text" placeholder="לדוגמה: משמרת ערב, מלאי"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <input id="entryId" type="hidden">
+          <button id="add" class="btn btn-primary">שמור משמרת</button>
+          <button onclick="if(confirm('לרוקן את כל היומן?')){ localStorage.removeItem('neria_premium_worklog_v1'); location.reload(); }" class="btn btn-ghost">איפוס מהיר</button>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="metric"><div class="label">שעות משמרת</div><div id="pvHours" class="value">0.00</div></div>
+        <div class="metric"><div class="label">שעות נוספות</div><div id="pvOt" class="value">0.00</div></div>
+        <div class="metric"><div class="label">תשלום משוער</div><div id="pvPay" class="value">0 ₪</div></div>
+      </div>
+      <p class="small" style="color:var(--muted)">חישוב: 40 ₪/שעה עד 8 שעות, אחרי זה 125%.</p>
+    </main>
+
+    <aside class="sidebar">
+      <div class="card">
+        <h3>סיכומים מהירים</h3>
+        <div class="kpi-grid" style="margin-top:12px">
+          <div class="kpi"><div class="klabel">סה״כ שעות (נבחר)</div><div id="totalHours" class="kvalue">0.00</div></div>
+          <div class="kpi"><div class="klabel">סה״כ שעות נוספות</div><div id="totalOt" class="kvalue">0.00</div></div>
+          <div class="kpi"><div class="klabel">סה״כ שכר</div><div id="totalPay" class="kvalue">0 ₪</div></div>
+          <div class="kpi"><div class="klabel">יצוא / גיבוי</div><div style="margin-top:8px"><a id="expCsv" class="btn btn-ghost" href="#">CSV</a> <a id="expJson" class="btn btn-ghost" href="#">JSON</a></div></div>
+        </div>
+        <p class="small" style="margin-top:10px;color:var(--muted)">האתר שומר בדפדפן שלך. למשתמשים מתקדמים ניתן לחבר Google Drive או GitHub.</p>
+      </div>
+    </aside>
+
+    <section class="card" style="grid-column:1/-1">
+      <h2>רשומות</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="color:var(--muted);margin:0 6px 0 0">חודש</label>
+          <select id="month" style="background:transparent;border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px"></select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="downloadCSV();" class="btn btn-ghost">הורד CSV</button>
+          <button onclick="downloadJSON();" class="btn btn-ghost">הורד JSON</button>
+        </div>
+      </div>
+
+      <div class="table-wrap card" style="padding:0">
+        <table id="tbl">
+          <thead><tr><th>תאריך</th><th>כניסה</th><th>יציאה</th><th>שעות</th><th>ש.נוספות</th><th>סה״כ</th><th>הערה</th><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td colspan="3">סה״כ</td><td id="fHours">0.00</td><td id="fOt">0.00</td><td id="fPay">0 ₪</td><td colspan="2"></td></tr></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">© נריה — יומן עבודה פרימיום • נשמר מקומית בדפדפן</footer>
+  </div>
+
+<script src="script.js"></script>
+<script>
+// wire export links
+function downloadCSV(){
+  const rows = JSON.parse(localStorage.getItem('neria_premium_worklog_v1')||'[]');
+  if(!rows.length){ alert('אין נתונים לייצא'); return; }
+  const header=['תאריך','כניסה','יציאה','שעות','שעות נוספות','סה״כ','הערה'];
+  const lines=[header.join(',')];
+  rows.forEach(r=> lines.push([r.date,r.start,r.end,r.hours,r.overtime,r.pay,`"${(r.note||'').replace(/"/g,'""')}"`].join(',')));
+  const blob=new Blob([lines.join('\\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='worklog_export.csv'; a.click();
+}
+function downloadJSON(){
+  const rows = JSON.parse(localStorage.getItem('neria_premium_worklog_v1')||'[]');
+  if(!rows.length){ alert('אין נתונים לייצא'); return; }
+  const blob=new Blob([JSON.stringify(rows,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='worklog_export.json'; a.click();
+}
+</script>
+</body>
+</html>
